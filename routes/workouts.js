@@ -40,6 +40,34 @@ router.post('/', auth, async (req, res) => {
   }
 });
 
+// GET leaderboard
+router.get('/leaderboard', auth, async (req, res) => {
+  try {
+    const { muscle } = req.query;
+    const users = await User.find({});
+    const entries = [];
+    users.forEach(u => {
+      u.sessions.forEach(s => {
+        if (muscle && muscle !== 'all' && s.muscle !== muscle) return;
+        s.sets.forEach(set => {
+          entries.push({
+            username: u.username,
+            name: u.name,
+            muscle: s.muscle,
+            exercise: s.exercise,
+            weight: parseFloat(set.weight || 0)
+          });
+        });
+      });
+    });
+    // Sort by weight descending and take top 10
+    const top = entries.sort((a, b) => b.weight - a.weight).slice(0, 10);
+    res.json(top);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
 // DELETE a workout session
 router.delete('/:sessionId', auth, async (req, res) => {
   try {
