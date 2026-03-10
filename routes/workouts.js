@@ -29,8 +29,8 @@ router.get('/', auth, async (req, res) => {
 // POST save a new workout session
 router.post('/', auth, async (req, res) => {
   try {
-    const { muscle, exercise, sets } = req.body;
-    const session = { muscle, exercise, sets, date: new Date() };
+    const { muscle, exercise, sets, date } = req.body;
+    const session = { muscle, exercise, sets, date: date ? new Date(date) : new Date() };
     const user = await User.findById(req.user.id);
     user.sessions.push(session);
     await user.save();
@@ -60,7 +60,6 @@ router.get('/leaderboard', auth, async (req, res) => {
         });
       });
     });
-    // Sort by weight descending and take top 10
     const top = entries.sort((a, b) => b.weight - a.weight).slice(0, 10);
     res.json(top);
   } catch (err) {
