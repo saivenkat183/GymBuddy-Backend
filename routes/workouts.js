@@ -34,13 +34,16 @@ router.post('/', auth, async (req, res) => {
     const user = await User.findById(req.user.id);
     user.sessions.push(session);
     await user.save();
-    res.json({ message: 'Workout saved!', session });
+    // Return the saved subdocument with its proper MongoDB _id
+    const savedSession = user.sessions[user.sessions.length - 1];
+    res.json({ message: 'Workout saved!', session: savedSession });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
 
-// GET leaderboard
+// ─── LEADERBOARD MUST BE ABOVE /:sessionId — otherwise Express treats
+//     "leaderboard" as a sessionId param and it never gets reached ─────────────
 router.get('/leaderboard', auth, async (req, res) => {
   try {
     const { muscle } = req.query;
