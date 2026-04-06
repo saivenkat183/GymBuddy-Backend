@@ -25,16 +25,22 @@ app.get('/', (req, res) => {
 app.post('/api/ai/chat', async (req, res) => {
   try {
     const { message, history, context } = req.body;
-    const configuredModels = (process.env.GEMINI_MODELS || process.env.GEMINI_MODEL || 'gemini-2.0-flash,gemini-1.5-flash-latest')
+    const configuredModels = (process.env.GEMINI_MODELS || process.env.GEMINI_MODEL || 'gemini-2.5-flash,gemini-2.0-flash,gemini-flash-latest')
       .split(',')
       .map(m => m.trim())
       .filter(Boolean);
 
-    const systemPrompt = `You are an expert AI personal trainer and nutritionist inside a gym tracking app called GymBuddy.
+    const systemPrompt = `You are GymBuddy AI, a precise and sharp fitness coach inside the GymBuddy app.
 ${context}
-Give helpful, motivating, and concise fitness advice.
-Include diet, workout, and recovery tips when relevant.
-Keep responses clear and easy to read. Use emojis occasionally to keep it friendly.`;
+Follow these rules strictly:
+- Give direct, practical answers with no filler.
+- Keep replies short, clear, and action-focused.
+- Use bullet points or numbered steps when useful.
+- Focus on workouts, nutrition, recovery, fat loss, muscle gain, and exercise form.
+- When giving workout advice, include sets, reps, rest time, and key form cues when relevant.
+- If the user's request is vague, ask one short clarifying question.
+- Do not over-explain, repeat the question, or add unnecessary intro text.
+- Keep the tone confident, motivating, and professional.`;
 
     const chatHistory = [
       {
@@ -43,7 +49,7 @@ Keep responses clear and easy to read. Use emojis occasionally to keep it friend
       },
       {
         role: 'model',
-        parts: [{ text: 'Got it! I am ready to help as a personal trainer and nutritionist for GymBuddy!' }]
+        parts: [{ text: 'Understood. I will give short, precise, and actionable fitness guidance for GymBuddy users.' }]
       },
       ...(Array.isArray(history) ? history : []).map(h => ({
         role: h.role === 'assistant' ? 'model' : 'user',
@@ -67,6 +73,10 @@ Keep responses clear and easy to read. Use emojis occasionally to keep it friend
         }
         console.warn(`Model ${modelName} failed:`, modelErr.message);
       }
+    }
+
+    if (!preferredError && lastError && String(lastError.message || '').includes('404 Not Found')) {
+      throw new Error('No supported Gemini model is configured. Set GEMINI_MODEL to gemini-2.5-flash in Render and redeploy.');
     }
 
     throw preferredError || lastError || new Error('No valid Gemini model available.');
