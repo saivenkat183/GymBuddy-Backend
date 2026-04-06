@@ -7,6 +7,25 @@ require('dotenv').config({ path: './.env' });
 const app = express();
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
+function formatAiReply(text = '') {
+  return String(text)
+    .replace(/\r/g, '')
+    .replace(/[*_]{1,2}([^*_]+)[*_]{1,2}/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/^#{1,6}\s*/gm, '')
+    .replace(/^\s*[-*]\s+/gm, '- ')
+    .replace(/\s*\*\*\s*/g, ' ')
+    .replace(/\s*\*\s*/g, ' ')
+    .replace(/\s*•\s*/g, '\n- ')
+    .replace(/(Day\s+\d+\s*:)/gi, '\n\n$1')
+    .replace(/(Protein target:|Calories:|Workout:|Diet:|Recovery:|Form cues:|Rest:)/gi, '\n$1')
+    .replace(/(\d+\.)\s*/g, '\n$1 ')
+    .replace(/[|#>*_~]/g, '')
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -30,17 +49,22 @@ app.post('/api/ai/chat', async (req, res) => {
       .map(m => m.trim())
       .filter(Boolean);
 
-    const systemPrompt = `You are GymBuddy AI, a precise and sharp fitness coach inside the GymBuddy app.
+    const systemPrompt = `You are GymBuddy AI, a strict no-nonsense fitness coach inside the GymBuddy app.
 ${context}
 Follow these rules strictly:
-- Give direct, practical answers with no filler.
-- Keep replies short, clear, and action-focused.
-- Use bullet points or numbered steps when useful.
-- Focus on workouts, nutrition, recovery, fat loss, muscle gain, and exercise form.
-- When giving workout advice, include sets, reps, rest time, and key form cues when relevant.
-- If the user's request is vague, ask one short clarifying question.
-- Do not over-explain, repeat the question, or add unnecessary intro text.
-- Keep the tone confident, motivating, and professional.`;
+- Give direct, practical answers with zero filler.
+- Keep replies short, sharp, and action-focused.
+- Return plain text only.
+- Do not use markdown, bold text, asterisks, hashtags, tables, or special formatting symbols.
+- Split answers into small readable segments using short lines.
+- Use simple dashes or numbered steps only when needed.
+- Keep most answers within 4 to 8 short lines.
+- For workout or diet plans, give a compact version first, not a huge wall of text.
+- Focus only on workouts, nutrition, recovery, fat loss, muscle gain, and exercise form.
+- When giving workout advice, include sets, reps, rest time, and key form cues.
+- If the request is vague, ask one short clarifying question only.
+- Do not over-explain, repeat the question, greet by name unnecessarily, or add intro fluff.
+- Keep the tone disciplined, confident, and professional like a serious coach.`;
 
     const chatHistory = [
       {
@@ -49,7 +73,7 @@ Follow these rules strictly:
       },
       {
         role: 'model',
-        parts: [{ text: 'Understood. I will give short, precise, and actionable fitness guidance for GymBuddy users.' }]
+        parts: [{ text: 'Understood. I will give strict, precise, and actionable fitness guidance with no unnecessary filler.' }]
       },
       ...(Array.isArray(history) ? history : []).map(h => ({
         role: h.role === 'assistant' ? 'model' : 'user',
@@ -64,7 +88,8 @@ Follow these rules strictly:
         const model = genAI.getGenerativeModel({ model: modelName });
         const chat = model.startChat({ history: chatHistory });
         const result = await chat.sendMessage(message);
-        const reply = result.response.text();
+        const rawReply = result.response.text();
+        const reply = formatAiReply(rawReply);
         return res.json({ reply, modelUsed: modelName });
       } catch (modelErr) {
         lastError = modelErr;
